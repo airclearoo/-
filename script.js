@@ -69,14 +69,20 @@ function renderDishes(dishes, container, category) {
         dishEl.addEventListener('click', () => toggleDishSelection(dishEl, dish, category));
         dishContainer.appendChild(dishEl);
         
-        // 如果是米饭或荤菜，添加份数选择器
-        if (category === 'rice' || category === 'main') {
+        // 如果是荤菜或素菜，添加份数选择器
+        if (category === 'main' || category === 'side') {
             const quantitySelector = document.createElement('div');
             quantitySelector.className = 'quantity-selector';
+            quantitySelector.style.width = '100%';
+            quantitySelector.style.display = 'flex';
+            quantitySelector.style.justifyContent = 'center';
+            quantitySelector.style.marginTop = '5px';
             
             const minusBtn = document.createElement('button');
             minusBtn.className = 'quantity-btn';
             minusBtn.textContent = '-';
+            minusBtn.style.width = '30%';
+            minusBtn.style.padding = '5px 0';
             minusBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 updateQuantity(dish, category, -1);
@@ -85,10 +91,15 @@ function renderDishes(dishes, container, category) {
             const quantityDisplay = document.createElement('span');
             quantityDisplay.className = 'quantity-display';
             quantityDisplay.textContent = selectedItem ? selectedItem.quantity || 1 : 1;
+            quantityDisplay.style.width = '40%';
+            quantityDisplay.style.textAlign = 'center';
+            quantityDisplay.style.display = 'inline-block';
             
             const plusBtn = document.createElement('button');
             plusBtn.className = 'quantity-btn';
             plusBtn.textContent = '+';
+            plusBtn.style.width = '30%';
+            plusBtn.style.padding = '5px 0';
             plusBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 updateQuantity(dish, category, 1);
@@ -306,10 +317,10 @@ function createReceiptHTML() {
                 <span>${totalQuantity} 份</span>
             </div>
             <div class="receipt-footer">
-                <div>请室友帮忙打饭，谢谢!</div>
+                <div>感谢8C602兄弟代购！</div>
             </div>
             <div class="receipt-thank-you">
-                食堂打饭助手 &hearts;
+                兄弟齐心，其利断金 &hearts;
             </div>
         </div>
     `;
