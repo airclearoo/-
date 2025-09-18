@@ -90,7 +90,7 @@ function renderDishes(dishes, container, category) {
             
             const quantityDisplay = document.createElement('span');
             quantityDisplay.className = 'quantity-display';
-            quantityDisplay.textContent = selectedItem ? selectedItem.quantity || 1 : 1;
+            quantityDisplay.textContent = selectedItem ? selectedItem.quantity || 0 : 0;
             quantityDisplay.style.width = '40%';
             quantityDisplay.style.textAlign = 'center';
             quantityDisplay.style.display = 'inline-block';
@@ -125,14 +125,20 @@ function updateQuantity(dishName, category, change) {
         selectedItem = {
             name: dishName,
             category: category,
-            quantity: 1
+            quantity: 0
         };
         selectedDishes.push(selectedItem);
-        dishEl.classList.add('selected');
     }
     
     // 更新份数
-    selectedItem.quantity = Math.max(1, (selectedItem.quantity || 1) + change);
+    selectedItem.quantity = Math.max(0, (selectedItem.quantity || 0) + change);
+    
+    // 更新选中状态
+    if (selectedItem.quantity > 0) {
+        dishEl.classList.add('selected');
+    } else {
+        dishEl.classList.remove('selected');
+    }
     quantityDisplay.textContent = selectedItem.quantity;
     
     // 如果份数为0，移除菜品
