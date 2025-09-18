@@ -1,0 +1,656 @@
+// 菜单数据
+const menuData = {
+    rice: [
+        "米饭1两", "米饭2两", "米饭3两", "米饭4两"
+    ],
+    main: [
+        "宫保鸡丁", "蒜苔炒肉", "韭菜炒鸡蛋", "青椒炒肉", 
+        "鸡蛋羹", "鸡腿", "煎鸡蛋", "鸭腿"
+    ],
+    side: [
+        "炒油麦菜", "炒包菜", "炒娃娃菜", "豆腐"
+    ]
+};
+
+// DOM元素
+const riceDishesEl = document.getElementById('rice-dishes');
+const mainDishesEl = document.getElementById('main-dishes');
+const sideDishesEl = document.getElementById('side-dishes');
+const selectedDishesEl = document.getElementById('selected-dishes');
+const clearBtn = document.getElementById('clear-btn');
+const saveBtn = document.getElementById('save-btn');
+const modal = document.getElementById('modal');
+const closeModal = document.querySelector('.close');
+const downloadBtn = document.getElementById('download-btn');
+const downloadImgBtn = document.getElementById('download-img-btn');
+const customDishNameInput = document.getElementById('custom-dish-name');
+const customDishCategorySelect = document.getElementById('custom-dish-category');
+const addCustomDishBtn = document.getElementById('add-custom-dish');
+const loadOrderFileInput = document.getElementById('load-order-file');
+const loadOrderBtn = document.getElementById('load-order-btn');
+const orderPreviewEl = document.getElementById('order-preview');
+const orderCanvas = document.getElementById('order-canvas');
+
+// 存储已选菜品
+let selectedDishes = [];
+// 存储自定义菜品
+let customDishes = {
+    rice: [],
+    main: [],
+    side: []
+};
+
+// 初始化菜单
+function initializeMenu() {
+    renderDishes(menuData.rice.concat(customDishes.rice), riceDishesEl, 'rice');
+    renderDishes(menuData.main.concat(customDishes.main), mainDishesEl, 'main');
+    renderDishes(menuData.side.concat(customDishes.side), sideDishesEl, 'side');
+}
+
+// 渲染菜品
+function renderDishes(dishes, container, category) {
+    container.innerHTML = '';
+    dishes.forEach(dish => {
+        const dishContainer = document.createElement('div');
+        dishContainer.className = 'dish-container';
+        
+        const dishEl = document.createElement('div');
+        dishEl.className = 'dish-item';
+        dishEl.textContent = dish;
+        dishEl.dataset.name = dish;
+        dishEl.dataset.category = category;
+        
+        // 检查是否已选择
+        const selectedItem = selectedDishes.find(item => item.name === dish && item.category === category);
+        if (selectedItem) {
+            dishEl.classList.add('selected');
+        }
+        
+        dishEl.addEventListener('click', () => toggleDishSelection(dishEl, dish, category));
+        dishContainer.appendChild(dishEl);
+        
+        // 如果是米饭或荤菜，添加份数选择器
+        if (category === 'rice' || category === 'main') {
+            const quantitySelector = document.createElement('div');
+            quantitySelector.className = 'quantity-selector';
+            
+            const minusBtn = document.createElement('button');
+            minusBtn.className = 'quantity-btn';
+            minusBtn.textContent = '-';
+            minusBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                updateQuantity(dish, category, -1);
+            });
+            
+            const quantityDisplay = document.createElement('span');
+            quantityDisplay.className = 'quantity-display';
+            quantityDisplay.textContent = selectedItem ? selectedItem.quantity || 1 : 1;
+            
+            const plusBtn = document.createElement('button');
+            plusBtn.className = 'quantity-btn';
+            plusBtn.textContent = '+';
+            plusBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                updateQuantity(dish, category, 1);
+            });
+            
+            quantitySelector.appendChild(minusBtn);
+            quantitySelector.appendChild(quantityDisplay);
+            quantitySelector.appendChild(plusBtn);
+            dishContainer.appendChild(quantitySelector);
+        }
+        
+        container.appendChild(dishContainer);
+    });
+}
+
+// 更新菜品份数
+function updateQuantity(dishName, category, change) {
+    const dishEl = document.querySelector(`.dish-item[data-name="${dishName}"][data-category="${category}"]`);
+    const quantityDisplay = dishEl.parentElement.querySelector('.quantity-display');
+    
+    let selectedItem = selectedDishes.find(item => item.name === dishName && item.category === category);
+    if (!selectedItem) {
+        selectedItem = {
+            name: dishName,
+            category: category,
+            quantity: 1
+        };
+        selectedDishes.push(selectedItem);
+        dishEl.classList.add('selected');
+    }
+    
+    // 更新份数
+    selectedItem.quantity = Math.max(1, (selectedItem.quantity || 1) + change);
+    quantityDisplay.textContent = selectedItem.quantity;
+    
+    // 如果份数为0，移除菜品
+    if (selectedItem.quantity <= 0) {
+        selectedDishes = selectedDishes.filter(item => 
+            !(item.name === dishName && item.category === category)
+        );
+        dishEl.classList.remove('selected');
+    }
+    
+    updateSelectedDishesDisplay();
+}
+
+// 切换菜品选择状态
+function toggleDishSelection(element, dishName, category) {
+    const isSelected = element.classList.toggle('selected');
+    
+    if (isSelected) {
+        // 添加到已选菜品
+        selectedDishes.push({
+            name: dishName,
+            category: category,
+            quantity: 1
+        });
+    } else {
+        // 从已选菜品中移除
+        selectedDishes = selectedDishes.filter(dish => 
+            !(dish.name === dishName && dish.category === category)
+        );
+    }
+    
+    updateSelectedDishesDisplay();
+}
+
+// 更新已选菜品显示
+function updateSelectedDishesDisplay() {
+    if (selectedDishes.length === 0) {
+        selectedDishesEl.innerHTML = '<p class="empty-selection">还没有选择任何菜品哦~</p>';
+        return;
+    }
+    
+    selectedDishesEl.innerHTML = '';
+    
+    // 按类别分组显示
+    const categories = {
+        rice: { title: '米饭', items: [] },
+        main: { title: '荤菜', items: [] },
+        side: { title: '素菜', items: [] }
+    };
+    
+    // 分组
+    selectedDishes.forEach(dish => {
+        categories[dish.category].items.push(dish);
+    });
+    
+    // 渲染每个类别
+    for (const [category, data] of Object.entries(categories)) {
+        if (data.items.length > 0) {
+            const categoryTitle = document.createElement('h4');
+            categoryTitle.textContent = data.title;
+            selectedDishesEl.appendChild(categoryTitle);
+            
+            data.items.forEach(dish => {
+                const dishEl = document.createElement('div');
+                dishEl.className = 'selected-dish';
+                
+                const nameEl = document.createElement('span');
+                nameEl.textContent = dish.name;
+                
+                // 如果是米饭或荤菜，显示份数
+                if (category === 'rice' || category === 'main') {
+                    const quantityEl = document.createElement('span');
+                    quantityEl.className = 'dish-quantity';
+                    quantityEl.textContent = ` ×${dish.quantity || 1}`;
+                    nameEl.appendChild(quantityEl);
+                }
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-dish';
+                removeBtn.textContent = '×';
+                removeBtn.addEventListener('click', () => removeDish(dish));
+                
+                dishEl.appendChild(nameEl);
+                dishEl.appendChild(removeBtn);
+                selectedDishesEl.appendChild(dishEl);
+            });
+        }
+    }
+}
+
+// 移除已选菜品
+function removeDish(dish) {
+    // 从选择列表中移除
+    selectedDishes = selectedDishes.filter(item => 
+        !(item.name === dish.name && item.category === dish.category)
+    );
+    
+    // 更新菜单中的选择状态
+    const dishElements = document.querySelectorAll('.dish-item');
+    dishElements.forEach(el => {
+        if (el.dataset.name === dish.name && el.dataset.category === dish.category) {
+            el.classList.remove('selected');
+        }
+    });
+    
+    updateSelectedDishesDisplay();
+}
+
+// 清空选择
+clearBtn.addEventListener('click', () => {
+    selectedDishes = [];
+    document.querySelectorAll('.dish-item').forEach(el => {
+        el.classList.remove('selected');
+    });
+    updateSelectedDishesDisplay();
+});
+
+// 创建小票样式的点菜单HTML
+function createReceiptHTML() {
+    // 获取当前日期和时间
+    const now = new Date();
+    const dateStr = now.toLocaleDateString();
+    const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    
+    // 生成订单号（使用时间戳后6位）
+    const orderNumber = Math.floor(now.getTime() % 1000000).toString().padStart(6, '0');
+    
+    // 按类别分组
+    const categories = {
+        rice: { title: '米饭', items: [] },
+        main: { title: '荤菜', items: [] },
+        side: { title: '素菜', items: [] }
+    };
+    
+    selectedDishes.forEach(dish => {
+        categories[dish.category].items.push(dish);
+    });
+    
+    // 计算总份数
+    let totalQuantity = 0;
+    selectedDishes.forEach(dish => {
+        totalQuantity += dish.quantity || 1;
+    });
+    
+    // 创建HTML
+    let html = `
+        <div class="receipt">
+            <div class="receipt-header">
+                <h3>食堂打饭单</h3>
+                <p>订单号: #${orderNumber}</p>
+                <p>${dateStr} ${timeStr}</p>
+            </div>
+            <div class="receipt-divider"></div>
+    `;
+    
+    // 添加各类别菜品
+    for (const [category, data] of Object.entries(categories)) {
+        if (data.items.length > 0) {
+            html += `
+                <div class="receipt-category">
+                    <div class="receipt-category-title">${data.title}</div>
+            `;
+            
+            data.items.forEach(dish => {
+                html += `
+                    <div class="receipt-item">
+                        <div class="receipt-item-name">${dish.name}</div>
+                        <div class="receipt-item-quantity">x${dish.quantity || 1}</div>
+                    </div>
+                `;
+            });
+            
+            html += `</div>`;
+        }
+    }
+    
+    // 添加总计
+    html += `
+            <div class="receipt-divider"></div>
+            <div class="receipt-total">
+                <span>总计</span>
+                <span>${totalQuantity} 份</span>
+            </div>
+            <div class="receipt-footer">
+                <div>请室友帮忙打饭，谢谢!</div>
+            </div>
+            <div class="receipt-thank-you">
+                食堂打饭助手 &hearts;
+            </div>
+        </div>
+    `;
+    
+    return html;
+}
+
+// 生成点菜单图片
+function generateOrderImage() {
+    return new Promise((resolve, reject) => {
+        // 创建临时DOM元素来渲染点菜单
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = createReceiptHTML();
+        tempDiv.style.position = 'absolute';
+        tempDiv.style.left = '-9999px';
+        document.body.appendChild(tempDiv);
+        
+        const receipt = tempDiv.querySelector('.receipt');
+        
+        // 使用html2canvas库将DOM元素转换为图片
+        html2canvas(receipt, {
+            backgroundColor: '#ffffff',
+            scale: 2, // 提高图片质量
+            logging: false,
+            useCORS: true
+        }).then(canvas => {
+            // 清理临时DOM元素
+            document.body.removeChild(tempDiv);
+            
+            // 返回图片URL
+            const imgUrl = canvas.toDataURL('image/png');
+            resolve(imgUrl);
+        }).catch(error => {
+            console.error('生成图片失败:', error);
+            reject(error);
+        });
+    });
+}
+
+// 加载html2canvas库
+function loadHtml2Canvas() {
+    return new Promise((resolve, reject) => {
+        if (window.html2canvas) {
+            resolve();
+            return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('加载html2canvas库失败'));
+        document.head.appendChild(script);
+    });
+}
+
+// 保存点菜单
+saveBtn.addEventListener('click', async () => {
+    if (selectedDishes.length === 0) {
+        alert('请先选择菜品哦~');
+        return;
+    }
+    
+    // 准备要保存的数据
+    const orderData = {
+        timestamp: new Date().toISOString(),
+        dishes: selectedDishes,
+        customDishes: customDishes
+    };
+    
+    // 创建Blob对象
+    const blob = new Blob([JSON.stringify(orderData, null, 2)], { type: 'application/json' });
+    const jsonUrl = URL.createObjectURL(blob);
+    
+    // 设置JSON下载
+    downloadBtn.onclick = () => {
+        const a = document.createElement('a');
+        a.href = jsonUrl;
+        a.download = `点菜单_${new Date().toLocaleDateString().replace(/\//g, '-')}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+    
+    try {
+        // 加载html2canvas库
+        await loadHtml2Canvas();
+        
+        // 显示加载中的提示
+        orderPreviewEl.innerHTML = '<p>正在生成点菜单图片...</p>';
+        modal.style.display = 'block';
+        
+        // 确保模态框内容从顶部开始显示
+        setTimeout(() => {
+            const modalContent = modal.querySelector('.modal-content');
+            if (modalContent) {
+                modalContent.scrollTop = 0;
+            }
+        }, 10);
+        
+        // 生成点菜单HTML预览
+        orderPreviewEl.innerHTML = createReceiptHTML();
+        
+        // 生成点菜单图片
+        const imgUrl = await generateOrderImage();
+        
+        // 显示图片预览，添加缩放控制
+        orderPreviewEl.innerHTML = `
+            <div style="text-align: center;">
+                <img src="${imgUrl}" alt="点菜单" style="max-width: 100%; max-height: 55vh;">
+                <div style="margin-top: 10px; color: #666; font-size: 12px;">
+                    (图片已自动缩放以适应屏幕，下载的图片为原始尺寸)
+                </div>
+            </div>
+        `;
+        
+        // 确保滚动到顶部，让用户看到完整的预览和按钮
+        modal.querySelector('.modal-content').scrollTop = 0;
+        
+        // 设置图片下载
+        downloadImgBtn.onclick = () => {
+            const a = document.createElement('a');
+            a.href = imgUrl;
+            a.download = `点菜单_${new Date().toLocaleDateString().replace(/\//g, '-')}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        };
+        
+        // 添加微信分享按钮
+        addShareButton(imgUrl);
+    } catch (error) {
+        console.error('生成点菜单图片失败:', error);
+        alert('生成图片失败，请重试或使用JSON格式保存');
+        
+        // 显示HTML预览作为备选
+        orderPreviewEl.innerHTML = createReceiptHTML();
+    }
+});
+
+// 关闭模态框
+closeModal.addEventListener('click', () => {
+    modal.style.display = 'none';
+});
+
+// 点击模态框外部关闭
+window.addEventListener('click', (event) => {
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+});
+
+// 添加自定义菜品
+addCustomDishBtn.addEventListener('click', () => {
+    const dishName = customDishNameInput.value.trim();
+    const category = customDishCategorySelect.value;
+    
+    if (!dishName) {
+        alert('请输入菜品名称');
+        return;
+    }
+    
+    // 检查是否已存在
+    const allDishes = [...menuData[category], ...customDishes[category]];
+    if (allDishes.includes(dishName)) {
+        alert('该菜品已存在');
+        return;
+    }
+    
+    // 添加到自定义菜品
+    customDishes[category].push(dishName);
+    
+    // 重新渲染菜单
+    initializeMenu();
+    
+    // 清空输入框
+    customDishNameInput.value = '';
+});
+
+// 导入点菜单
+loadOrderBtn.addEventListener('click', () => {
+    const file = loadOrderFileInput.files[0];
+    if (!file) {
+        alert('请先选择文件');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            
+            // 导入自定义菜品
+            if (data.customDishes) {
+                customDishes = data.customDishes;
+            }
+            
+            // 导入已选菜品
+            if (data.dishes) {
+                selectedDishes = data.dishes;
+            }
+            
+            // 重新渲染菜单和已选菜品
+            initializeMenu();
+            updateSelectedDishesDisplay();
+            
+            alert('点菜单导入成功！');
+        } catch (error) {
+            alert('文件格式错误，无法导入');
+            console.error(error);
+        }
+    };
+    reader.readAsText(file);
+});
+
+// 添加微信分享按钮功能
+function addShareButton(imgUrl) {
+    // 创建分享按钮
+    const shareBtn = document.createElement('button');
+    shareBtn.id = 'share-btn';
+    shareBtn.textContent = '分享到微信';
+    shareBtn.style.backgroundColor = '#07C160'; // 微信绿色
+    shareBtn.style.padding = '12px 25px';
+    shareBtn.style.fontSize = '16px';
+    
+    // 添加点击事件
+    shareBtn.addEventListener('click', () => {
+        // 检查是否在微信浏览器中
+        const isWechat = /MicroMessenger/i.test(navigator.userAgent);
+        const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        // 创建一个全屏的分享页面
+        createSharePage(imgUrl);
+    });
+    
+    // 将按钮添加到下载选项区域
+    const downloadOptions = document.querySelector('.download-options');
+    downloadOptions.appendChild(shareBtn);
+}
+
+// 创建分享页面
+function createSharePage(imgUrl) {
+    // 隐藏模态框
+    modal.style.display = 'none';
+    
+    // 创建全屏分享页面
+    const sharePage = document.createElement('div');
+    sharePage.style.position = 'fixed';
+    sharePage.style.top = '0';
+    sharePage.style.left = '0';
+    sharePage.style.width = '100%';
+    sharePage.style.height = '100%';
+    sharePage.style.backgroundColor = '#f5f5f5';
+    sharePage.style.zIndex = '10000';
+    sharePage.style.display = 'flex';
+    sharePage.style.flexDirection = 'column';
+    sharePage.style.alignItems = 'center';
+    sharePage.style.padding = '20px';
+    sharePage.style.boxSizing = 'border-box';
+    sharePage.style.overflow = 'auto';
+    
+    // 添加内容
+    sharePage.innerHTML = `
+        <div style="position: absolute; top: 15px; left: 15px; font-size: 16px; cursor: pointer; background: rgba(0,0,0,0.1); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
+            ←
+        </div>
+        <h2 style="margin-top: 10px; margin-bottom: 20px; color: #333;">长按图片保存或分享</h2>
+        <div style="text-align: center; margin-bottom: 20px; max-width: 100%;">
+            <img src="${imgUrl}" alt="点菜单" style="max-width: 100%; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        </div>
+        <p style="color: #666; margin-bottom: 20px; text-align: center;">↑ 长按图片可保存或直接分享到微信 ↑</p>
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <button id="save-share-img" style="background-color: #ff6b6b; color: white; border: none; padding: 12px 25px; border-radius: 8px; font-size: 16px;">保存图片</button>
+            <button id="close-share-page" style="background-color: #999; color: white; border: none; padding: 12px 25px; border-radius: 8px; font-size: 16px;">返回</button>
+        </div>
+        <p style="color: #999; font-size: 14px; text-align: center;">
+            提示：在微信中，长按图片可以直接发送给朋友或分享到朋友圈
+        </p>
+    `;
+    
+    // 添加到页面
+    document.body.appendChild(sharePage);
+    
+    // 添加事件监听
+    sharePage.querySelector('#close-share-page').addEventListener('click', () => {
+        document.body.removeChild(sharePage);
+        modal.style.display = 'block';
+    });
+    
+    sharePage.querySelector('div[style*="position: absolute"]').addEventListener('click', () => {
+        document.body.removeChild(sharePage);
+        modal.style.display = 'block';
+    });
+    
+    sharePage.querySelector('#save-share-img').addEventListener('click', () => {
+        const a = document.createElement('a');
+        a.href = imgUrl;
+        a.download = `点菜单_${new Date().toLocaleDateString().replace(/\//g, '-')}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    });
+    
+    // 添加图片加载完成事件
+    const img = sharePage.querySelector('img');
+    img.onload = () => {
+        // 图片加载完成后，添加提示动画
+        const imgContainer = img.parentElement;
+        imgContainer.innerHTML += `
+            <div class="press-hint" style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background-color: rgba(0,0,0,0.6);
+                color: white;
+                padding: 10px 20px;
+                border-radius: 20px;
+                font-size: 14px;
+                animation: fadeInOut 2s ease-in-out infinite;
+            ">长按图片分享</div>
+        `;
+        
+        // 添加动画样式
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeInOut {
+                0% { opacity: 0; }
+                50% { opacity: 1; }
+                100% { opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // 3秒后移除提示
+        setTimeout(() => {
+            const hint = document.querySelector('.press-hint');
+            if (hint) hint.remove();
+        }, 3000);
+    };
+}
+
+// 初始化
+initializeMenu();
+updateSelectedDishesDisplay();
